@@ -1,5 +1,6 @@
 from math import log2
 from math import sqrt
+from random import randint
 from queue import PriorityQueue
 
 import numpy as np
@@ -26,10 +27,11 @@ class TreeNode():
 
 
 class DTC45():
-    def __init__(self, max_depth=35, min_samples_split=2, max_continuous_attr_splits=150):
+    def __init__(self, max_depth=35, min_samples_split=2, max_continuous_attr_splits=150, building_random_forest=False):
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.max_continuous_attr_splits = max_continuous_attr_splits
+        self.building_random_forest = building_random_forest
         print("Tree parameter settings: max_depth={}, min_samples_split={}, max_continuous_attr_splits={}".format(
             max_depth, min_samples_split, max_continuous_attr_splits))
         self.root = None
@@ -234,7 +236,21 @@ class DTC45():
         # deal with each attribute
         X_y = [list(xi) + [yi] for (xi, yi) in zip(X, y)]
 
-        for attr in attr_list:
+        # forming candidate attribute set
+        if self.building_random_forest:
+            # select int(log_{2}^{k}) random attributes
+            attr_num = int(np.log2(len(attr_list)))
+            if attr_num<1:
+                attr_num = 1
+            candidate_attrs = []
+            while len(candidate_attrs)<attr_num:
+                attr = attr_list(randint(0, len(attr_list)-1))
+                if attr not in candidate_attrs:
+                    candidate_attrs.append(attr)
+        else:
+            candidate_attrs = attr_list
+
+        for attr in candidate_attrs:
             attr_pos = self.attr_position_map[attr]
             # two dimensional map for query the occurrences of given attribute value and y value
             attr_value_y = {}
@@ -465,7 +481,7 @@ class DTC45():
         if not self.built:
             print("You should build the tree first by calling the 'fit' method with some train samples.")
             return None
-        X_y = [xi + [yi] for (xi, yi) in zip(X, y)]
+        X_y = [list(xi) + [yi] for (xi, yi) in zip(X, y)]
         for x_y in X_y:
             cur_node = self.root
             while (not cur_node.is_leaf):

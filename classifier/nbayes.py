@@ -28,7 +28,9 @@ class NBayes():
                     self.attr_discrete_values[attr] = set([x[i] for x in X_train])
 
         self.tot_train_num = len(y_train)
-        self.y_class_indexes = dict(zip(self.y_kinds, [[]] * len(self.y_kinds)))
+        self.y_class_indexes = dict()
+        for y_v in self.y_kinds:
+            self.y_class_indexes[y_v] = []
         for i in range(self.tot_train_num):
             self.y_class_indexes[y_train[i]].append(i)
 
@@ -49,7 +51,7 @@ class NBayes():
         # calculate conditional probability
         self.cond_prob = dict()
         for y_v in self.y_kinds:
-            self.cond_prob[y_v] = dict(zip(self.attr_list, [[]] * len(self.attr_list)))
+            self.cond_prob[y_v] = dict()
             for attr in self.attr_list:
                 cur_y_attr = X_train[self.y_class_indexes[y_v], self.attr_position_map[attr]]
                 if (not self.attr_is_discrete_map[attr]):
@@ -138,16 +140,17 @@ if __name__ == '__main__':
     import pandas as pd
     from sklearn.model_selection import train_test_split
 
-    bank = pd.read_csv('./data/bank.csv')
+    bank = pd.read_csv('../data/bank.csv')
     X = np.array(bank.ix[:,bank.columns[0:-1]], dtype=object)
     y = np.array(bank.ix[:,bank.columns[-1]])
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
 
-    attr_list = ['age', 'contact', 'month', 'day_of_week', 'campaign', 'pdays', 'previous', 'poutcome', 'emp.var.rate', 'cons.price.idx', 'cons.conf.idx', 'euribor3m', 'nr.employed']
+    attr_list = ['age', 'job', 'marital', 'education', 'default', 'housing', 'loan', 'contact', 'month', 'day_of_week', 'campaign', 'pdays', 'previous', 'poutcome', 'emp.var.rate', 'cons.price.idx', 'cons.conf.idx', 'euribor3m', 'nr.employed']
     categorical_attris = ['job', 'marital', 'education', 'default', 'housing', 'loan', 'contact', 'month', 'day_of_week', 'poutcome']
 
     nbayes = NBayes()
     nbayes.fit(X_train, y_train, attr_list, attr_is_discrete=[x in categorical_attris for x in attr_list])
 
 
-    nbayes.evaluate(X_train, y_train)
+    print(nbayes.evaluate(X_train, y_train))
+    print(nbayes.evaluate(X_test, y_test))
