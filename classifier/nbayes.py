@@ -91,6 +91,7 @@ class NBayes():
                 y_pred_class = y_v
         return y_pred_class, y_preds
 
+    # genera prediction
     def predict(self, X_test):
         if not self.built:
             print("You should build the NBayes first by calling the 'fit' method with some train samples.")
@@ -100,6 +101,17 @@ class NBayes():
         for x in X_test:
             y_predicts.append(self.predict_one_record(x)[0])
         return y_predicts
+
+    # return predict probabilities for positive label in binary classification
+    def predict_proba(self, X_test):
+        if not self.built:
+            print("You should build the NBayes first by calling the 'fit' method with some train samples.")
+            return None
+
+        y_pred_probas = []
+        for x in X_test:
+            y_pred_probas.append(self.predict_one_record(x)[1][1])
+        return y_pred_probas
 
     def evaluate(self, X_test, y_test, detailed_result=0):
         y_predict = self.predict(X_test)

@@ -57,8 +57,9 @@ class DTC45():
                     self.attr_discrete_values[attr] = set([x[i] for x in X_train])
 
         self.root = TreeNode(attr_list_for_split=attr_list, depth=0, is_root=True)
-        print('# Building tree, wait please...')
-        print('Number of samples used for building:', len(X_train))
+        if verbose:
+            print('# Building tree, wait please...')
+            print('Number of samples used for building:', len(X_train))
         self.root = self._build_tree(self.root, X_train, y_train, verbose=verbose)
         self.built = True
 
@@ -222,7 +223,7 @@ class DTC45():
 
         return most_frequent_value
 
-    def _choose_best_split_attr(self, X, y, attr_list):
+    def _choose_best_split_attr(self, X, y, attr_list, verbose=0):
         best_attr = None
         best_attr_gain_ratio = 0
         best_attr_split_value = None
@@ -317,7 +318,8 @@ class DTC45():
                                 best_attr_split_value = attr_split_value
 
         if best_attr == None:
-            print("None best_attr found.")
+            if verbose:
+                print("None best_attr found.")
             best_attr = attr_list[0]
             best_attr_split_value = X[0][self.attr_position_map[best_attr]]
 
@@ -434,7 +436,7 @@ class DTC45():
                     print("Val Acc: ", val_acc)
 
                 # update the best Acc
-                if val_acc < best_acc:      # <= 0.94366 / < 
+                if val_acc < best_acc:      # <= 0.94366 / <
                     # rollback, if val_acc doesn't improve
                     node.is_leaf = False
                     node.classification = None
@@ -572,5 +574,29 @@ def main():
     print("Detailed performances [Acc, Sn, Sp, Pre, MCC]:\n{}".format(performances_after_pruning))
 
 
+# if __name__ == '__main__':
+#     main()
 if __name__ == '__main__':
-    main()
+    import pandas as pd
+    from sklearn.model_selection import train_test_split
+
+    bank = pd.read_csv('../data/bank.csv')
+    bank.to_csv(index=False)
+    X = np.array(bank.ix[:,bank.columns[0:-1]], dtype=object)
+    y = np.array(bank.ix[:,bank.columns[-1]])
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
+
+    attr_list = ['age', 'job', 'marital', 'education', 'default', 'housing', 'loan', 'contact', 'month', 'day_of_week', 'campaign', 'pdays', 'previous', 'poutcome', 'emp.var.rate', 'cons.price.idx', 'cons.conf.idx', 'euribor3m', 'nr.employed']
+    categorical_attris = ['job', 'marital', 'education', 'default', 'housing', 'loan', 'contact', 'month', 'day_of_week', 'poutcome']
+
+
+    dt = DTC45()
+    dt.fit(X_train[:-5000,:], y_train[:-5000], attr_list, attr_is_discrete=[x in categorical_attris for x in attr_list])
+
+    print(dt.evaluate(X_train, y_train))
+    print(dt.evaluate(X_test, y_test))
+
+
+    dt.pruning(X_train[-5000:,:], y_train[-5000:])
+    print(dt.evaluate(X_train, y_train))
+    print(dt.evaluate(X_test, y_test))

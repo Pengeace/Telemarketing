@@ -38,15 +38,19 @@ class RandomForest():
 
         # bagging sampling and building all subtrees
         self.trees = []
-        tot_train_num = len(y_train)
         for i in range(self.tree_number):
-            train_indexes = [randint(0, tot_train_num-1) for i in range(tot_train_num)]
-            dtree = DTC45(max_depth=self.max_tree_depth, min_samples_split=self.min_samples_split, max_continuous_attr_splits=self.max_continuous_attr_splits)
-            print('# Building tree %d...' % (i+1))
-            dtree.fit(X_train=X_train[train_indexes,:], y_train=y_train[train_indexes],attr_list=self.attr_list,attr_is_discrete=attr_is_discrete, attr_discrete_values=self.attr_discrete_values, verbose=0)
-            self.trees.append(dtree)
+            print('# Building tree %d...' % (i + 1))
+            self.trees.append(self._build_tree(X_train, y_train))
         self.built = True
 
+    def _build_tree(self, X_train, y_train):
+        tot_train_num = len(y_train)
+        train_indexes = [randint(0, tot_train_num - 1) for i in range(tot_train_num)]
+        dtree = DTC45(max_depth=self.max_tree_depth, min_samples_split=self.min_samples_split,
+                      max_continuous_attr_splits=self.max_continuous_attr_splits)
+        dtree.fit(X_train=X_train[train_indexes, :], y_train=y_train[train_indexes], attr_list=self.attr_list,
+                  attr_is_discrete=[self.attr_is_discrete_map[attr] for attr in self.attr_list], attr_discrete_values=self.attr_discrete_values, verbose=0)
+        return dtree
 
     def predict(self, X_test):
         if not self.built:
@@ -64,13 +68,35 @@ class RandomForest():
             y_value_dict = dict(zip(self.y_kinds, [0]*len(self.y_kinds)))
             for y_v in y_predicts_tot[:,i]:
                 y_value_dict[y_v] += 1
-            y_preds.append(max(y_value_dict, key=dict.get))
+            y_preds.append(max(y_value_dict, key=y_value_dict.get))
 
         return y_preds
+
+    # return predict probabilities for positive label in binary classification
+    def predict_proba(self, X_test):
+        if not self.built:
+            print("You should build the RandomForest first by calling the 'fit' method with some train samples.")
+            return None
+
+        y_predicts_tot = []
+        for tree in self.trees:
+            y_pred = tree.predict(X_test)
+            y_predicts_tot.append(y_pred)
+        y_predicts_tot = np.array(y_predicts_tot)
+
+        y_pred_probas = []
+        tot_test_num = len(X_test)
+        for i in range(tot_test_num):
+            y_pred_probas.append(sum(y_predicts_tot[:,i]) / tot_test_num)
+        return y_pred_probas
 
     def evaluate(self, X_test, y_test, detailed_result=0):
         y_predict = self.predict(X_test)
         return self._calculate_metrics(y_predict, y_test, detailed_result)
+
+    def add_new_tree(self, tree_num):
+        for i in range(tree_num):
+            self.trees.append(self._build_tree(X_train, y_train))
 
     def _calculate_metrics(self, y_pred, y_true, detailed_result):
         """ If parameter detailed_result is False or 0, only prediction accuracy (Acc) will be returned.
@@ -115,8 +141,8 @@ if __name__ == '__main__':
     attr_list = ['age', 'job', 'marital', 'education', 'default', 'housing', 'loan', 'contact', 'month', 'day_of_week', 'campaign', 'pdays', 'previous', 'poutcome', 'emp.var.rate', 'cons.price.idx', 'cons.conf.idx', 'euribor3m', 'nr.employed']
     categorical_attris = ['job', 'marital', 'education', 'default', 'housing', 'loan', 'contact', 'month', 'day_of_week', 'poutcome']
 
-    nbayes = RandomForest(tree_number=10)
-    nbayes.fit(X_train, y_train, attr_list, attr_is_discrete=[x in categorical_attris for x in attr_list])
+    rf = RandomForest(tree_number=10)
+    rf.fit(X_train, y_train, attr_list, attr_is_discrete=[x in categorical_attris for x in attr_list])
 
-    print(nbayes.evaluate(X_train, y_train))
-    print(nbayes.evaluate(X_test, y_test))
+    print(rf.evaluate(X_train, y_train))
+    print(rf.evaluate(X_test, y_test))

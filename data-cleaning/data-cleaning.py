@@ -18,6 +18,7 @@ from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import StratifiedKFold
 from sklearn.naive_bayes import GaussianNB
 from classifier.dtree import DTC45
+from classifier.randomforest import RandomForest
 
 source_data_dir = r"../data/source-data/bank-additional-full.csv"
 # source_data_dir = r"../data/source-data/bank-additional-full.csv"
@@ -58,17 +59,18 @@ train_records = df.ix[train_record_indexes, :]
 
 for attr in attrs_have_unknown:
     print("\nPredicting unknown values in attribute %s..." % attr)
-    tree = DTC45(max_depth=40, min_samples_split=3, max_continuous_attr_splits=200)
+    clf = RandomForest(tree_number=10)
     attr_list = attrs_dont_have_unknown
 
     print("Training...")
-    tree.fit(X_train=np.array(train_records.ix[:,attr_list]), y_train=train_records[attr].values, attr_list=attr_list,
+    clf.fit(X_train=np.array(train_records.ix[:,attr_list]), y_train=train_records[attr].values, attr_list=attr_list,
              attr_is_discrete=[x in categorical_attris for x in attr_list], verbose=0)
-    print("Overall Accuracy on train data: "+str(tree.evaluate(train_records.ix[:,attr_list].values,train_records[attr].values)))
+    print("Overall Accuracy on train data: "+str(clf.evaluate(train_records.ix[:,attr_list].values,train_records[attr].values)))
 
     test_indexes = [x for x in tot_unknown_record_indexes if df.ix[x, attr]=='unknown']
     print("Predicting...")
-    df.ix[test_indexes, attr] = tree.predict(np.array(df.ix[test_indexes, attr_list]))
+    df.ix[test_indexes, attr] = clf.predict(np.array(df.ix[test_indexes, attr_list]))
+df.to_csv('../data/bank_without_unknown.csv', index=False)
 #=====================================================
 
 
@@ -86,7 +88,7 @@ contact_values = ["cellular","telephone"]
 month_values = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 day_of_week_values = ["mon","tue","wed","thu","fri"]
 poutcome_values = ["nonexistent","failure","success"]
-y_values = ["yes","no"]
+y_values = ["no","yes"]
 
 job_coding = dict(zip(job_values,list(range(len(job_values)))))
 marital_coding = dict(zip(marital_values,list(range(len(marital_values)))))
@@ -110,16 +112,26 @@ attrlabel2value_map = {
 for attr in attrlabel2value_map.keys():
     attr_map = attrlabel2value_map[attr]
     df.ix[: ,attr] = [attr_map[x] for x in df.ix[: ,attr]]
+    df.ix[:, attr].astype('int32')
+
+df.to_csv('../data/bank.csv', index=False)
 #=====================================================
 
 
+# #=====================================================
+# # data standardization
+# # for attr in numeric_attris:
+# scaler = preprocessing.StandardScaler()
+# df[:,numeric_attris] = scaler.fit_transform(df[:,numeric_attris])
+# #=====================================================
+
 
 #=====================================================
-# 特征筛选
+# feature ranking and selection
 from minepy import MINE
 from scipy import stats
 
-attrs = tot_attrs[0:-1]
+attrs = list(tot_attrs[0:-1])
 print("# Feature ranking process.")
 
 # t-test based feature ranking attribute
@@ -147,13 +159,16 @@ print(mic_ranking)
 
 # RFE (Recursive Feature Elimination) feature ranking
 from sklearn.feature_selection import RFE
-from sklearn.svm import SVR
+# from sklearn.svm import SVR
+from sklearn.linear_model import LogisticRegression
 
-estimator = SVR(kernel="linear")
-selector = RFE(estimator, 1, step=1)
+# estimator = SVR(kernel="linear")
+selector = RFE(LogisticRegression(max_iter=1000), 1, step=1)
 selector = selector.fit(df.ix[:, attrs], y_values)
 rfe_ranking = selector.ranking_
-
+rfe_result = sorted(list(zip(attrs, rfe_ranking)), key=operator.itemgetter(1))
+rfe_sorted_attrs = [x[0] for x in rfe_result]
+print(mic_sorted_attrs)
 print(rfe_ranking)
 
 
@@ -169,6 +184,9 @@ rf_ranking = [rf_sorted_attrs.index(x)+1 for x in attrs]
 print(rf_sorted_attrs)
 print(rf_ranking)
 
+attr_ranking_df = pd.DataFrame(data=np.vstack([ttest_ranking, mic_ranking, rfe_ranking, rf_ranking]).T, index=attrs, columns=['t-test ranking', 'mic ranking', 'rfe ranking', 'rf ranking'])
+
+removed_attrs = ['default', 'day_of_week', 'month']
 
 # draw the violin plot for each attribute
 fig_rows = 4
@@ -189,12 +207,12 @@ plt.close()
 
 #=====================================================
 
-# 标准化
+
 
 # 类别不平衡处理
 from imblearn.combine import SMOTEENN
 smote_enn = SMOTEENN(random_state=0)
 X_res, y_res = smote_enn.fit_sample(np.array(df.ix[:, attrs]), y_values)
+for i, attr in enumerate(attrs):
+    X_res[:,i].astype('int32')
 
-
-df.to_csv('../data/bank.csv')
