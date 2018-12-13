@@ -52,11 +52,13 @@ for attr in categorical_attris:
     print('Attribute: %s, unknown values: %d(%.3f%%).' % (attr, number_unknown, number_unknown*1.0/tot_records_num*100))
 attrs_dont_have_unknown = [x for x in tot_attrs if x not in attrs_have_unknown]
 
+
 df_columns_have_known = df.ix[:, attrs_have_unknown]
 tot_unknown_record_indexes = [i for i in df.index if 'unknown' in list(df_columns_have_known.ix[i,:])]
 train_record_indexes = [i for i in df.index if i not in tot_unknown_record_indexes]
 train_records = df.ix[train_record_indexes, :]
 
+# predicting by random forest
 for attr in attrs_have_unknown:
     print("\nPredicting unknown values in attribute %s..." % attr)
     clf = RandomForest(tree_number=10)
@@ -168,7 +170,7 @@ selector = selector.fit(df.ix[:, attrs], y_values)
 rfe_ranking = selector.ranking_
 rfe_result = sorted(list(zip(attrs, rfe_ranking)), key=operator.itemgetter(1))
 rfe_sorted_attrs = [x[0] for x in rfe_result]
-print(mic_sorted_attrs)
+print(rfe_sorted_attrs)
 print(rfe_ranking)
 
 
@@ -184,9 +186,10 @@ rf_ranking = [rf_sorted_attrs.index(x)+1 for x in attrs]
 print(rf_sorted_attrs)
 print(rf_ranking)
 
-attr_ranking_df = pd.DataFrame(data=np.vstack([ttest_ranking, mic_ranking, rfe_ranking, rf_ranking]).T, index=attrs, columns=['t-test ranking', 'mic ranking', 'rfe ranking', 'rf ranking'])
+p_vals_str = ['%.5f' % p_v for p_v in p_vals]
+attr_ranking_df = pd.DataFrame(data=np.vstack([ttest_ranking, mic_ranking, rfe_ranking, rf_ranking, p_vals_str]).T, index=attrs, columns=['t-test ranking', 'mic ranking', 'rfe ranking', 'rf ranking', 'p value'])
 
-removed_attrs = ['default', 'day_of_week', 'month']
+removed_attrs = ['default']
 
 # draw the violin plot for each attribute
 fig_rows = 4
