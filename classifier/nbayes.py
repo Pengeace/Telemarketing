@@ -5,8 +5,9 @@ from sklearn.metrics import confusion_matrix
 
 
 class NBayes():
-    def __init__(self, lamda=1):
-        self.lamda = lamda  # for smoothing
+    def __init__(self, lamda=1, std_smoothing=1e-9):
+        self.lamda = lamda  # for smoothing in discrete attribute
+        self.std_smoothing = std_smoothing  # for smoothing in numeric continues attribute
         self.built = False
 
     def fit(self, X_train, y_train, attr_list, attr_is_discrete, attr_discrete_values=None, verbose=0):
@@ -55,7 +56,7 @@ class NBayes():
             for attr in self.attr_list:
                 cur_y_attr = X_train[self.y_class_indexes[y_v], self.attr_position_map[attr]]
                 if (not self.attr_is_discrete_map[attr]):
-                    self.cond_prob[y_v][attr] = [np.mean(cur_y_attr), np.std(cur_y_attr)]
+                    self.cond_prob[y_v][attr] = [np.mean(cur_y_attr), np.std(cur_y_attr)+self.std_smoothing]
                 else:
                     self.cond_prob[y_v][attr] = dict(
                         zip(self.attr_discrete_values[attr], [0] * len(self.attr_discrete_values[attr])))
@@ -117,7 +118,7 @@ class NBayes():
         y_predict = self.predict(X_test)
         return self._calculate_metrics(y_predict, y_test, detailed_result)
 
-    def _calculate_metrics(self, y_pred, y_true, detailed_result):
+    def _calculate_metrics(self, y_pred, y_true, detailed_result=0):
         """ If parameter detailed_result is False or 0, only prediction accuracy (Acc) will be returned.
             Otherwise, the returned result will be confusion matrix and prediction metrics list,
              in which only [Acc] for multiple classification and [Acc, Sn, Sp, Precision, MCC] for binary classification.
@@ -162,7 +163,39 @@ if __name__ == '__main__':
 
     nbayes = NBayes()
     nbayes.fit(X_train, y_train, attr_list, attr_is_discrete=[x in categorical_attris for x in attr_list])
-
-
     print(nbayes.evaluate(X_train, y_train))
-    print(nbayes.evaluate(X_test, y_test))
+    print(nbayes.evaluate(X_test, y_test, detailed_result=1))
+
+    print('all continous attrs')
+    nbayes = NBayes()
+    nbayes.fit(X_train, y_train, attr_list, [False]*len(attr_list))
+    print(nbayes.evaluate(X_train, y_train))
+    print(nbayes.evaluate(X_test, y_test, detailed_result=1))
+
+    from imblearn.over_sampling import SMOTE
+    smote_enn = SMOTE(random_state=0)
+    X_res, y_res = smote_enn.fit_sample(X_train, y_train)
+    for i, attr in enumerate(attr_list):
+        if attr in categorical_attris:
+            X_res[:, i] = X_res[:, i].astype('int32')
+    # smote
+    print('balance data')
+    nbayes = NBayes()
+    nbayes.fit(X_res, y_res, attr_list, attr_is_discrete=[x in categorical_attris for x in attr_list])
+    print(nbayes.evaluate(X_res, y_res))
+    print(nbayes.evaluate(X_test, y_test, detailed_result=1))
+
+
+    # updated features
+    cur_attrs = ['age', 'job', 'marital', 'education', 'housing', 'loan', 'contact', 'campaign', 'pdays', 'previous', 'poutcome', 'emp.var.rate', 'cons.price.idx', 'cons.conf.idx', 'euribor3m', 'nr.employed']
+    X_s = np.array(bank.ix[:, cur_attrs], dtype=object)
+    y_s = np.array(bank.ix[:, bank.columns[-1]])
+    X_train_s, X_test_s, y_train_s, y_test_s = train_test_split(X_s, y_s, test_size=0.3, random_state=0)
+
+    print("# Shrink features")
+    nbayes_s = NBayes()
+    nbayes_s.fit(X_train_s[:-5000, :], y_train_s[:-5000], cur_attrs, attr_is_discrete=[x in categorical_attris for x in cur_attrs])
+    print(nbayes_s.evaluate(X_train_s, y_train_s))
+    print(nbayes_s.evaluate(X_test_s, y_test_s, detailed_result=1))
+
+
