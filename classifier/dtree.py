@@ -1,7 +1,7 @@
 from math import log2
 from math import sqrt
-from random import randint
 from queue import PriorityQueue
+from random import randint
 
 import numpy as np
 from sklearn.metrics import confusion_matrix
@@ -44,7 +44,7 @@ class DTC45():
         self.attr_position_map = dict(zip(attr_list, range(len(attr_list))))
         # if the elements in *attr_is_discrete* are [True, False] format, convert them to [1, 0] format
         if attr_is_discrete[0] in [True, False]:
-            attr_is_discrete = list([1 if x==True else 0 for x in attr_is_discrete])
+            attr_is_discrete = list([1 if x == True else 0 for x in attr_is_discrete])
         self.attr_is_discrete_map = dict(zip(attr_list, attr_is_discrete))
 
         if attr_discrete_values != None:
@@ -241,11 +241,11 @@ class DTC45():
         if self.building_random_forest:
             # select int(log_{2}^{k}) random attributes
             attr_num = int(np.log2(len(attr_list)))
-            if attr_num<1:
+            if attr_num < 1:
                 attr_num = 1
             candidate_attrs = []
-            while len(candidate_attrs)<attr_num:
-                attr = attr_list(randint(0, len(attr_list)-1))
+            while len(candidate_attrs) < attr_num:
+                attr = attr_list(randint(0, len(attr_list) - 1))
                 if attr not in candidate_attrs:
                     candidate_attrs.append(attr)
         else:
@@ -436,7 +436,7 @@ class DTC45():
                     print("Val Acc: ", val_acc)
 
                 # update the best Acc
-                if val_acc < best_acc:      # <= 0.94366 / <
+                if val_acc < best_acc:  # <= 0.94366 / <
                     # rollback, if val_acc doesn't improve
                     node.is_leaf = False
                     node.classification = None
@@ -500,103 +500,3 @@ class DTC45():
                         cur_node = cur_node.descendants['less']
                     else:
                         cur_node = cur_node.descendants['greater']  # performance test
-
-
-def main():
-    data_type_path = './datatypes.csv'  # a list to record whether an attribute is discrete or not
-    train_data_path = './btrain.csv'
-    test_data_path = './bvalidate.csv'
-    random_seed = 0
-    max_tree_depth = 35
-    min_samples_split = 4
-    max_continuous_attr_splits = 20
-    validation_sample_num = 5000
-    verbose = 0
-
-    with open(data_type_path, 'r') as data_type:
-        attr_type = data_type.read().strip().split(',')
-        attr_type = [0 if x.lower() == 'false' else 1 for x in attr_type if len(x) > 0]
-
-    def load_data(data_path, return_data_attrs=False):
-        with open(data_path, 'r') as train_data:
-            head = True
-            samples = []
-            completed_samples = []
-            data_attrs = None
-            for line in train_data:
-
-                if head:
-                    data_attrs = line.strip().split(',')
-                    head = False
-                else:
-                    sample = line.strip().split(',')
-                    samples.append(sample)
-                    if '?' not in sample:
-                        sample = [x if x.isalpha() else eval(x) for x in sample]
-                        completed_samples.append(sample)
-
-        if return_data_attrs:
-            return completed_samples, data_attrs
-        else:
-            return completed_samples
-
-    samples, data_attrs = load_data(train_data_path, return_data_attrs=True)
-    test_samples = load_data(test_data_path)
-    # shuffle samples
-    np.random.seed(random_seed)
-    np.random.shuffle(samples)
-
-    validation_samples = samples[-validation_sample_num:]
-    train_samples = samples[0:-validation_sample_num]
-
-    X_train = [x[0:-1] for x in train_samples]
-    y_train = [x[-1] for x in train_samples]
-    X_validation = [x[0:-1] for x in validation_samples]
-    y_validation = [x[-1] for x in validation_samples]
-    X_test = [x[0:-1] for x in test_samples]
-    y_test = [x[-1] for x in test_samples]
-
-    tree = DTC45(max_depth=max_tree_depth, min_samples_split=min_samples_split,
-                 max_continuous_attr_splits=max_continuous_attr_splits)
-    tree.fit(X_train, y_train, attr_list=data_attrs[0:-1], attr_is_discrete=attr_type, verbose=verbose)
-
-    print("Train Acc: {}".format(tree.evaluate(X_train, y_train, detailed_result=0)))
-    con_matrix_before_pruning, performances_before_pruning = tree.evaluate(X_test, y_test, detailed_result=1)
-    print("\nTest Acc before pruning: {}".format(performances_before_pruning[0]))
-    print("Classification confusion_matrix:\n{}".format(con_matrix_before_pruning))
-    print("Detailed performances [Acc, Sn, Sp, Pre, MCC]:\n{}\n".format(performances_before_pruning))
-
-    tree.pruning(X_validation, y_validation, verbose=verbose)
-
-    con_matrix_after_pruning, performances_after_pruning = tree.evaluate(X_test, y_test, detailed_result=1)
-    print("\nTest Acc after pruning: {}".format(performances_after_pruning[0]))
-    print("Classification confusion_matrix:\n{}".format(con_matrix_after_pruning))
-    print("Detailed performances [Acc, Sn, Sp, Pre, MCC]:\n{}".format(performances_after_pruning))
-
-
-# if __name__ == '__main__':
-#     main()
-if __name__ == '__main__':
-    import pandas as pd
-    from sklearn.model_selection import train_test_split
-
-    bank = pd.read_csv('../data/bank.csv')
-    # bank.to_csv(index=False)
-    X = np.array(bank.ix[:,bank.columns[0:-1]], dtype=object)
-    y = np.array(bank.ix[:,bank.columns[-1]])
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
-
-    attr_list = ['age', 'job', 'marital', 'education', 'default', 'housing', 'loan', 'contact', 'month', 'day_of_week', 'campaign', 'pdays', 'previous', 'poutcome', 'emp.var.rate', 'cons.price.idx', 'cons.conf.idx', 'euribor3m', 'nr.employed']
-    categorical_attris = ['job', 'marital', 'education', 'default', 'housing', 'loan', 'contact', 'month', 'day_of_week', 'poutcome']
-
-
-    dt = DTC45()
-    dt.fit(X_train[:-5000,:], y_train[:-5000], attr_list, attr_is_discrete=[x in categorical_attris for x in attr_list])
-
-    print(dt.evaluate(X_train, y_train))
-    print(dt.evaluate(X_test, y_test))
-
-
-    dt.pruning(X_train[-5000:,:], y_train[-5000:])
-    print(dt.evaluate(X_train, y_train))
-    print(dt.evaluate(X_test, y_test))

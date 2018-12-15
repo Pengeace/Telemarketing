@@ -1,21 +1,20 @@
-from classifier.dtree import DTC45
-
-from math import log2
 from math import sqrt
 from random import randint
-from queue import PriorityQueue
 
 import numpy as np
 from sklearn.metrics import confusion_matrix
 
+from classifier.dtree import DTC45
+
 
 class RandomForest():
-    def __init__(self, tree_number=30, max_depth=100, min_samples_split=2, max_continuous_attr_splits=10, balance_sample=0):
+    def __init__(self, tree_number=30, max_depth=35, min_samples_split=2, max_continuous_attr_splits=10,
+                 balance_sample=0):
         self.tree_number = tree_number
         self.max_tree_depth = max_depth
         self.min_samples_split = min_samples_split
         self.max_continuous_attr_splits = max_continuous_attr_splits
-        self.balance_sample=balance_sample
+        self.balance_sample = balance_sample       # whether or not to perform balanced sampling in Bagging process
         self.built = False
         self.trees = []
 
@@ -53,15 +52,13 @@ class RandomForest():
             print('# Building tree %d...' % (i + 1))
             self.trees.append(self._build_tree(X_train, y_train))
 
-        if len(self.trees)>0:
+        if len(self.trees) > 0:
             self.built = True
-
-
 
     def _build_tree(self, X_train, y_train):
         tot_train_num = len(y_train)
 
-        # whether perform balanced sample in each y class
+        # whether perform balanced sampling in each y class
         if self.balance_sample:
             train_indexes = []
             sample_num_in_each_y_kind = len(y_train) // len(self.y_kinds)
@@ -73,7 +70,8 @@ class RandomForest():
         dtree = DTC45(max_depth=self.max_tree_depth, min_samples_split=self.min_samples_split,
                       max_continuous_attr_splits=self.max_continuous_attr_splits)
         dtree.fit(X_train=X_train[train_indexes, :], y_train=y_train[train_indexes], attr_list=self.attr_list,
-                  attr_is_discrete=[self.attr_is_discrete_map[attr] for attr in self.attr_list], attr_discrete_values=self.attr_discrete_values, verbose=0)
+                  attr_is_discrete=[self.attr_is_discrete_map[attr] for attr in self.attr_list],
+                  attr_discrete_values=self.attr_discrete_values, verbose=0)
         return dtree
 
     def predict(self, X_test, predict_tree_num=1000):
@@ -89,8 +87,8 @@ class RandomForest():
 
         y_preds = []
         for i in range(len(X_test)):
-            y_value_dict = dict(zip(self.y_kinds, [0]*len(self.y_kinds)))
-            for y_v in y_predicts_tot[:,i]:
+            y_value_dict = dict(zip(self.y_kinds, [0] * len(self.y_kinds)))
+            for y_v in y_predicts_tot[:, i]:
                 y_value_dict[y_v] += 1
             y_preds.append(max(y_value_dict, key=y_value_dict.get))
 
@@ -112,7 +110,7 @@ class RandomForest():
         tot_test_num = len(X_test)
         predict_trees = min(predict_tree_num, len(self.trees))
         for i in range(tot_test_num):
-            y_pred_probas.append(sum(y_predicts_tot[:,i]) / predict_trees)
+            y_pred_probas.append(sum(y_predicts_tot[:, i]) / predict_trees)
         return y_pred_probas
 
     def evaluate(self, X_test, y_test, detailed_result=0):
@@ -152,22 +150,3 @@ class RandomForest():
             if tmp != 0:
                 mcc = (tp * tn - fp * fn) / tmp
             return con_matrix, [acc, sn, sp, pre, mcc]
-
-
-if __name__ == '__main__':
-    import pandas as pd
-    from sklearn.model_selection import train_test_split
-
-    bank = pd.read_csv('../data/bank.csv')
-    X = np.array(bank.ix[:,bank.columns[0:-1]], dtype=object)
-    y = np.array(bank.ix[:,bank.columns[-1]])
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
-
-    attr_list = ['age', 'job', 'marital', 'education', 'default', 'housing', 'loan', 'contact', 'month', 'day_of_week', 'campaign', 'pdays', 'previous', 'poutcome', 'emp.var.rate', 'cons.price.idx', 'cons.conf.idx', 'euribor3m', 'nr.employed']
-    categorical_attris = ['job', 'marital', 'education', 'default', 'housing', 'loan', 'contact', 'month', 'day_of_week', 'poutcome']
-
-    rf = RandomForest(tree_number=10)
-    rf.fit(X_train, y_train, attr_list, attr_is_discrete=[x in categorical_attris for x in attr_list])
-
-    print(rf.evaluate(X_train, y_train))
-    print(rf.evaluate(X_test, y_test))

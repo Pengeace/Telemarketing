@@ -6,8 +6,8 @@ from sklearn.metrics import confusion_matrix
 
 class NBayes():
     def __init__(self, lamda=1, std_smoothing=1e-9):
-        self.lamda = lamda  # for smoothing in discrete attribute
-        self.std_smoothing = std_smoothing  # for smoothing in numeric continues attribute
+        self.lamda = lamda                  # for smoothing in categorical attribute
+        self.std_smoothing = std_smoothing  # for smoothing in numerical attribute
         self.built = False
 
     def fit(self, X_train, y_train, attr_list, attr_is_discrete, attr_discrete_values=None, verbose=0):
@@ -46,7 +46,7 @@ class NBayes():
         for y_v in self.prior_y:
             # smoothing
             self.prior_y[y_v] = float(len(self.y_class_indexes[y_v]) + self.lamda) / (
-                        self.tot_train_num + self.lamda * len(self.y_kinds))
+                    self.tot_train_num + self.lamda * len(self.y_kinds))
 
     def _calcu_conditional_probability(self, X_train):
         # calculate conditional probability
@@ -56,7 +56,7 @@ class NBayes():
             for attr in self.attr_list:
                 cur_y_attr = X_train[self.y_class_indexes[y_v], self.attr_position_map[attr]]
                 if (not self.attr_is_discrete_map[attr]):
-                    self.cond_prob[y_v][attr] = [np.mean(cur_y_attr), np.std(cur_y_attr)+self.std_smoothing]
+                    self.cond_prob[y_v][attr] = [np.mean(cur_y_attr), np.std(cur_y_attr) + self.std_smoothing]
                 else:
                     self.cond_prob[y_v][attr] = dict(
                         zip(self.attr_discrete_values[attr], [0] * len(self.attr_discrete_values[attr])))
@@ -64,7 +64,7 @@ class NBayes():
                         self.cond_prob[y_v][attr][attr_v] += 1
                     for attr_v in self.attr_discrete_values[attr]:
                         self.cond_prob[y_v][attr][attr_v] = float(self.cond_prob[y_v][attr][attr_v] + self.lamda) / (
-                                    len(cur_y_attr) + self.lamda * len(self.attr_discrete_values[attr]))
+                                len(cur_y_attr) + self.lamda * len(self.attr_discrete_values[attr]))
 
     def _calcu_gauss_prob(self, x_v, mean, stdev):
         exponent = np.exp(-(np.power(x_v - mean, 2)) / (2 * np.power(stdev, 2)))
@@ -92,7 +92,7 @@ class NBayes():
                 y_pred_class = y_v
         return y_pred_class, y_preds
 
-    # genera prediction
+    # generate prediction result
     def predict(self, X_test):
         if not self.built:
             print("You should build the NBayes first by calling the 'fit' method with some train samples.")
@@ -103,7 +103,7 @@ class NBayes():
             y_predicts.append(self.predict_one_record(x)[0])
         return y_predicts
 
-    # return predict probabilities for positive label in binary classification
+    # return predict probability for positive label in binary classification
     def predict_proba(self, X_test):
         if not self.built:
             print("You should build the NBayes first by calling the 'fit' method with some train samples.")
@@ -147,85 +147,3 @@ class NBayes():
             if tmp != 0:
                 mcc = (tp * tn - fp * fn) / tmp
             return con_matrix, [acc, sn, sp, pre, mcc]
-
-
-if __name__ == '__main__':
-
-    from sklearn.metrics import roc_curve, auc
-    def calc_metrics(y_label, y_proba):
-        con_matrix = confusion_matrix(y_label, [1 if x >= 0.5 else 0 for x in y_proba])
-        TN = float(con_matrix[0][0])
-        FP = float(con_matrix[0][1])
-        FN = float(con_matrix[1][0])
-        TP = float(con_matrix[1][1])
-        P = TP + FN
-        N = TN + FP
-        Sn = TP / P
-        Sp = TN / N
-        Acc = (TP + TN) / (P + N)
-        Avc = (Sn + Sp) / 2
-        # Pre = (TP) / (TP + FP)
-        MCC = 0
-        tmp = sqrt((TP + FP) * (TP + FN)) * sqrt((TN + FP) * (TN + FN))
-        if tmp != 0:
-            MCC = (TP * TN - FP * FN) / tmp
-        fpr, tpr, thresholds = roc_curve(y_label, y_proba)
-        AUC = auc(fpr, tpr)
-        return Sn, Sp, Acc, Avc, MCC, AUC
-
-    import pandas as pd
-    from sklearn.model_selection import train_test_split
-    from sklearn.ensemble import RandomForestClassifier
-
-    bank = pd.read_csv('../data/bank.csv')
-    X = np.array(bank.ix[:,bank.columns[0:-1]], dtype=object)
-    y = np.array(bank.ix[:,bank.columns[-1]])
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
-
-    rf = RandomForestClassifier(n_estimators=50)
-    rf.fit(X_train, y_train)
-    print(calc_metrics(y_test,rf.predict(X_test)))
-
-    attr_list = ['age', 'job', 'marital', 'education', 'default', 'housing', 'loan', 'contact', 'month', 'day_of_week', 'campaign', 'pdays', 'previous', 'poutcome', 'emp.var.rate', 'cons.price.idx', 'cons.conf.idx', 'euribor3m', 'nr.employed']
-    categorical_attris = ['job', 'marital', 'education', 'default', 'housing', 'loan', 'contact', 'month', 'day_of_week', 'poutcome']
-
-    nbayes = NBayes()
-    nbayes.fit(X_train, y_train, attr_list, attr_is_discrete=[x in categorical_attris for x in attr_list])
-    print(nbayes.evaluate(X_train, y_train))
-    print(nbayes.evaluate(X_test, y_test, detailed_result=1))
-
-    print('all continous attrs')
-    nbayes = NBayes()
-    nbayes.fit(X_train, y_train, attr_list, [False]*len(attr_list))
-    print(nbayes.evaluate(X_train, y_train))
-    print(nbayes.evaluate(X_test, y_test, detailed_result=1))
-
-    from imblearn.over_sampling import SMOTE
-    smote_enn = SMOTE(random_state=0,)
-    X_res, y_res = smote_enn.fit_sample(X_train, y_train)
-    for i, attr in enumerate(attr_list):
-        if attr in categorical_attris:
-            X_res[:, i] = X_res[:, i].astype('int32')
-    # smote
-    print('balance data')
-    nbayes = NBayes()
-    nbayes.fit(X_res, y_res, attr_list, attr_is_discrete=[x in categorical_attris for x in attr_list])
-    print(nbayes.evaluate(X_res, y_res))
-    print(nbayes.evaluate(X_test, y_test, detailed_result=1))
-
-
-    # updated features
-    cur_attrs = ['age', 'job', 'marital', 'education', 'housing', 'loan', 'contact', 'month', 'day_of_week', 'campaign', 'pdays', 'previous', 'poutcome', 'emp.var.rate', 'cons.price.idx', 'cons.conf.idx', 'euribor3m', 'nr.employed']
-
-    X_s = np.array(bank.ix[:, cur_attrs], dtype=object)
-    y_s = np.array(bank.ix[:, bank.columns[-1]])
-    X_train_s, X_test_s, y_train_s, y_test_s = train_test_split(X_s, y_s, test_size=0.3, random_state=0)
-
-    print("# Shrink features")
-    nbayes_s = NBayes()
-    nbayes_s.fit(X_train_s[:-5000, :], y_train_s[:-5000], cur_attrs, attr_is_discrete=[x in categorical_attris for x in cur_attrs])
-    print(nbayes_s.evaluate(X_train_s, y_train_s))
-    print(nbayes_s.evaluate(X_test_s, y_test_s, detailed_result=1))
-
-
-'minority'
