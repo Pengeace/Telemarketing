@@ -53,22 +53,22 @@ X, y = X_y[:,0:-1], X_y[:,-1]
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=1)
 
 
-rf = RandomForestClassifier(50)
-rf.fit(X_train, y_train)
-print('RF',calc_metrics(y_test,rf.predict(X_test)))
-
-nb = GaussianNB()
-nb.fit(X_train, y_train)
-print('NBayes',calc_metrics(y_test,nb.predict(X_test)))
-
-lr = LogisticRegression(max_iter=500)
-lr.fit(X_train, y_train)
-print('LR',calc_metrics(y_test,lr.predict(X_test)))
-
-
-mynb = NBayes()
-mynb.fit(X_train, y_train, cur_attrs, attr_is_discrete=[x in categorical_attris for x in cur_attrs])
-print('myNBayes',calc_metrics(y_test,mynb.predict(X_test)))
+# rf = RandomForestClassifier(50)
+# rf.fit(X_train, y_train)
+# print('RF',calc_metrics(y_test,rf.predict(X_test)))
+#
+# nb = GaussianNB()
+# nb.fit(X_train, y_train)
+# print('NBayes',calc_metrics(y_test,nb.predict(X_test)))
+#
+# lr = LogisticRegression(max_iter=500)
+# lr.fit(X_train, y_train)
+# print('LR',calc_metrics(y_test,lr.predict(X_test)))
+#
+#
+# mynb = NBayes()
+# mynb.fit(X_train, y_train, cur_attrs, attr_is_discrete=[x in categorical_attris for x in cur_attrs])
+# print('myNBayes',calc_metrics(y_test,mynb.predict(X_test)))
 
 X_t, X_v, y_t, y_v = train_test_split(X_train, y_train, test_size=0.18)
 dtree = DTC45(max_continuous_attr_splits=50)
@@ -78,7 +78,7 @@ dtree.pruning(X_v, y_v)
 print('After pruning',calc_metrics(y_test,dtree.predict(X_test)))
 
 
-print('#\n\n After resampling')
+print('#\n\n Smote Resampling.')
 smote = SMOTE(ratio=0.5, sampling_strategy='minority')
 X_res, y_res = smote.fit_sample(X_train, y_train)
 X_y_res = np.hstack([X_res, y_res.reshape(len(y_res),1)])
@@ -89,22 +89,21 @@ for i, attr in enumerate(cur_attrs):
         X_res[:, i] = X_res[:,i].astype('int32')
 print(Counter(y_res))
 
-rf = RandomForestClassifier(50)
-rf.fit(X_res, y_res)
-print('RF',calc_metrics(y_test,rf.predict(X_test)))
-
-nb = GaussianNB()
-nb.fit(X_res, y_res)
-print('NBayes',calc_metrics(y_test,nb.predict(X_test)))
-
-lr = LogisticRegression(max_iter=500)
-lr.fit(X_res, y_res)
-print('LR',calc_metrics(y_test,lr.predict(X_test)))
+# rf = RandomForestClassifier(50)
+# rf.fit(X_res, y_res)
+# print('RF',calc_metrics(y_test,rf.predict(X_test)))
 #
+# nb = GaussianNB()
+# nb.fit(X_res, y_res)
+# print('NBayes',calc_metrics(y_test,nb.predict(X_test)))
+#
+# lr = LogisticRegression(max_iter=500)
+# lr.fit(X_res, y_res)
+# print('LR',calc_metrics(y_test,lr.predict(X_test)))
+# #
 mynb = NBayes()
 mynb.fit(X_res, y_res, cur_attrs, attr_is_discrete=[x in categorical_attris for x in cur_attrs])
 print('myNBayes',calc_metrics(y_test,mynb.predict(X_test)))
-
 
 
 mydt = DTC45(max_continuous_attr_splits=50)
@@ -127,3 +126,37 @@ print('myRF',calc_metrics(y_test,myrf.predict(X_test)))
 myrf_balanced = RandomForest(tree_number=50, balance_sample=1)
 myrf_balanced.fit(X_res, y_res, cur_attrs, attr_is_discrete=[x in categorical_attris for x in cur_attrs])
 print('myRF_balanced',calc_metrics(y_test,myrf_balanced.predict(X_test)))
+
+# Compute ROC curve and AUC
+import matplotlib.pyplot as plt
+model_name_dict = {'NBayes': mynb,'RF':myrf,'RF-Balanced':myrf_balanced}
+for model in model_name_dict:
+    fpr, tpr, thresholds = roc_curve(y_test, model_name_dict[model].predict_proba(X_test))
+    roc_auc = auc(fpr, tpr)
+    plt.plot(fpr, tpr, lw=1, alpha=0.8, label='ROC of %s (AUC = %0.4f)' % (model, roc_auc))
+plt.plot([0, 1], [0, 1], linestyle='--', lw=1, label='Luck', alpha=.8)
+plt.xlim([-0.05, 1.05])
+plt.ylim([-0.05, 1.05])
+plt.xlabel('False Positive Rate', fontsize=16)
+plt.ylabel('True Positive Rate', fontsize=16)
+plt.title('ROC and AUC comparison', fontsize=18)
+plt.legend(loc="lower right")
+plt.savefig('../result/ROC-AUC.pdf')
+plt.show()
+plt.close()
+
+
+metrics = ['Sensitivity', 'Specificity/Recall', 'Accuracy', 'Precision', 'F1-Score', 'MCC', 'AUC']
+rf_metrcis = []
+for i in range(50):
+    rf_metrcis.append(calc_metrics(y_test,myrf.predict(X_test)))
+rf_metrcis = np.array(rf_metrcis)
+for i,metric in enumerate(metrics):
+    plt.plot(rf_metrcis[:,i], lw=1, label=metric)
+plt.xlabel('Number of trees in Random Forest', fontsize=16)
+# plt.ylabel('True Positive Rate', fontsize=16)
+plt.title('ROC and AUC comparison', fontsize=18)
+plt.legend(loc="lower right")
+plt.savefig('../result/ROC-AUC.pdf')
+plt.show()
+plt.close()

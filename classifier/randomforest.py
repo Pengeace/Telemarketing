@@ -110,8 +110,9 @@ class RandomForest():
 
         y_pred_probas = []
         tot_test_num = len(X_test)
+        predict_trees = min(predict_tree_num, len(self.trees))
         for i in range(tot_test_num):
-            y_pred_probas.append(sum(y_predicts_tot[:,i]) / tot_test_num)
+            y_pred_probas.append(sum(y_predicts_tot[:,i]) / predict_trees)
         return y_pred_probas
 
     def evaluate(self, X_test, y_test, detailed_result=0):
