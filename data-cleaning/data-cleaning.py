@@ -212,10 +212,10 @@ plt.close()
 
 
 
-# 类别不平衡处理
-from imblearn.combine import SMOTEENN
-smote_enn = SMOTEENN(random_state=0)
-X_res, y_res = smote_enn.fit_sample(np.array(df.ix[:, attrs]), y_values)
-for i, attr in enumerate(attrs):
-    X_res[:,i].astype('int32')
+# # 类别不平衡处理
+# from imblearn.combine import SMOTEENN
+# smote_enn = SMOTEENN(random_state=0)
+# X_res, y_res = smote_enn.fit_sample(np.array(df.ix[:, attrs]), y_values)
+# for i, attr in enumerate(attrs):
+#     X_res[:,i].astype('int32')
 

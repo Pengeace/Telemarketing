@@ -150,13 +150,41 @@ class NBayes():
 
 
 if __name__ == '__main__':
+
+    from sklearn.metrics import roc_curve, auc
+    def calc_metrics(y_label, y_proba):
+        con_matrix = confusion_matrix(y_label, [1 if x >= 0.5 else 0 for x in y_proba])
+        TN = float(con_matrix[0][0])
+        FP = float(con_matrix[0][1])
+        FN = float(con_matrix[1][0])
+        TP = float(con_matrix[1][1])
+        P = TP + FN
+        N = TN + FP
+        Sn = TP / P
+        Sp = TN / N
+        Acc = (TP + TN) / (P + N)
+        Avc = (Sn + Sp) / 2
+        # Pre = (TP) / (TP + FP)
+        MCC = 0
+        tmp = sqrt((TP + FP) * (TP + FN)) * sqrt((TN + FP) * (TN + FN))
+        if tmp != 0:
+            MCC = (TP * TN - FP * FN) / tmp
+        fpr, tpr, thresholds = roc_curve(y_label, y_proba)
+        AUC = auc(fpr, tpr)
+        return Sn, Sp, Acc, Avc, MCC, AUC
+
     import pandas as pd
     from sklearn.model_selection import train_test_split
+    from sklearn.ensemble import RandomForestClassifier
 
     bank = pd.read_csv('../data/bank.csv')
     X = np.array(bank.ix[:,bank.columns[0:-1]], dtype=object)
     y = np.array(bank.ix[:,bank.columns[-1]])
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
+
+    rf = RandomForestClassifier(n_estimators=50)
+    rf.fit(X_train, y_train)
+    print(calc_metrics(y_test,rf.predict(X_test)))
 
     attr_list = ['age', 'job', 'marital', 'education', 'default', 'housing', 'loan', 'contact', 'month', 'day_of_week', 'campaign', 'pdays', 'previous', 'poutcome', 'emp.var.rate', 'cons.price.idx', 'cons.conf.idx', 'euribor3m', 'nr.employed']
     categorical_attris = ['job', 'marital', 'education', 'default', 'housing', 'loan', 'contact', 'month', 'day_of_week', 'poutcome']
@@ -173,7 +201,7 @@ if __name__ == '__main__':
     print(nbayes.evaluate(X_test, y_test, detailed_result=1))
 
     from imblearn.over_sampling import SMOTE
-    smote_enn = SMOTE(random_state=0)
+    smote_enn = SMOTE(random_state=0,)
     X_res, y_res = smote_enn.fit_sample(X_train, y_train)
     for i, attr in enumerate(attr_list):
         if attr in categorical_attris:
@@ -187,7 +215,8 @@ if __name__ == '__main__':
 
 
     # updated features
-    cur_attrs = ['age', 'job', 'marital', 'education', 'housing', 'loan', 'contact', 'campaign', 'pdays', 'previous', 'poutcome', 'emp.var.rate', 'cons.price.idx', 'cons.conf.idx', 'euribor3m', 'nr.employed']
+    cur_attrs = ['age', 'job', 'marital', 'education', 'housing', 'loan', 'contact', 'month', 'day_of_week', 'campaign', 'pdays', 'previous', 'poutcome', 'emp.var.rate', 'cons.price.idx', 'cons.conf.idx', 'euribor3m', 'nr.employed']
+
     X_s = np.array(bank.ix[:, cur_attrs], dtype=object)
     y_s = np.array(bank.ix[:, bank.columns[-1]])
     X_train_s, X_test_s, y_train_s, y_test_s = train_test_split(X_s, y_s, test_size=0.3, random_state=0)
@@ -199,3 +228,4 @@ if __name__ == '__main__':
     print(nbayes_s.evaluate(X_test_s, y_test_s, detailed_result=1))
 
 
+'minority'

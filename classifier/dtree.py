@@ -27,7 +27,7 @@ class TreeNode():
 
 
 class DTC45():
-    def __init__(self, max_depth=35, min_samples_split=2, max_continuous_attr_splits=150, building_random_forest=False):
+    def __init__(self, max_depth=35, min_samples_split=2, max_continuous_attr_splits=20, building_random_forest=False):
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.max_continuous_attr_splits = max_continuous_attr_splits
@@ -581,7 +581,7 @@ if __name__ == '__main__':
     from sklearn.model_selection import train_test_split
 
     bank = pd.read_csv('../data/bank.csv')
-    bank.to_csv(index=False)
+    # bank.to_csv(index=False)
     X = np.array(bank.ix[:,bank.columns[0:-1]], dtype=object)
     y = np.array(bank.ix[:,bank.columns[-1]])
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
